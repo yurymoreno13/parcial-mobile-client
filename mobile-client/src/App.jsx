@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { register, login, products, createOrder, myOrders } from "./api";
 
+/* ============ helpers ============ */
+const money = (n) => `$${Number(n || 0).toLocaleString("es-CO")}`;
+
 /* ========================
    🔐 HOOK DE AUTENTICACIÓN
 =========================== */
@@ -34,7 +37,6 @@ export default function App() {
   const { token, save, logout } = useAuth();
   const [tab, setTab] = useState("auth"); // auth | shop | orders
 
-  // Cuando el usuario inicia sesión, mostrar tienda automáticamente
   useEffect(() => {
     if (token) setTab("shop");
     else setTab("auth");
@@ -61,7 +63,6 @@ export default function App() {
         <div className="card">
           <h2 style={{ textAlign: "center", marginBottom: 20 }}>Panel</h2>
 
-          {/* Botones principales SOLO tras iniciar sesión */}
           <div className="row" style={{ marginBottom: 10 }}>
             <button
               className={tab === "shop" ? "primary-btn" : "secondary"}
@@ -80,7 +81,6 @@ export default function App() {
             </button>
           </div>
 
-          {/* Contenido dinámico */}
           {tab === "shop" && <Shop token={token} />}
           {tab === "orders" && <Orders token={token} />}
         </div>
@@ -113,7 +113,6 @@ function Auth({ onAuth }) {
     }
   };
 
-  // Vista inicial (solo botones)
   if (!mode) {
     return (
       <div className="center-wrap">
@@ -148,7 +147,6 @@ function Auth({ onAuth }) {
     );
   }
 
-  // Formulario de login o registro
   return (
     <>
       <h2>{mode === "login" ? "Iniciar sesión" : "Registrarse"}</h2>
@@ -230,15 +228,24 @@ function Shop({ token }) {
     () => Object.entries(cart).map(([product, qty]) => ({ product, qty })),
     [cart]
   );
+
+  // ✅ total dinero calculado del carrito
+  const total = useMemo(
+    () =>
+      list.reduce((acc, p) => acc + (cart[p._id] || 0) * (p.price || 0), 0),
+    [list, cart]
+  );
+
   const totalItems = items.reduce((a, b) => a + b.qty, 0);
 
   const pay = async () => {
     if (!token) return setMsg("Inicia sesión para pagar.");
     if (items.length === 0) return setMsg("El carrito está vacío.");
     try {
-      await createOrder(items, token);
+      await createOrder(items, token); // si tu API acepta total, puedes pasar {items, total}
       setCart({});
-      setMsg("Pedido creado ✔");
+      // ✅ Mostrar total como antes
+      setMsg(`Pedido creado ✓ — Total: ${money(total)}`);
     } catch (e) {
       setMsg("Error: " + e.message);
     }
@@ -253,7 +260,7 @@ function Shop({ token }) {
             <div style={{ flex: 2 }}>
               <strong>{p.title}</strong>
               <br />
-              <small>${p.price}</small>
+              <small>{money(p.price)}</small>
             </div>
             <div className="right" style={{ flex: 1 }}>
               <div>
@@ -277,6 +284,7 @@ function Shop({ token }) {
           </div>
           <button onClick={pay}>Pagar (simulado)</button>
         </div>
+
         {msg && (
           <p>
             <small>{msg}</small>
@@ -326,7 +334,7 @@ function Orders({ token }) {
               <tr key={o._id}>
                 <td>{new Date(o.createdAt).toLocaleString()}</td>
                 <td>{o.items.reduce((a, b) => a + b.qty, 0)}</td>
-                <td className="right">${o.total}</td>
+                <td className="right">{money(o.total)}</td>
               </tr>
             ))}
             {rows.length === 0 && (
